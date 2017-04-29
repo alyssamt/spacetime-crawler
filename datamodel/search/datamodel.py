@@ -26,6 +26,9 @@ robot_manager = Robot()
 
 class UrlResponse(object):
     def __init__(self, dataframe_obj, url, content, error_message, http_code, headers, is_redirected, final_url = None):
+
+        print("URLRESPONSE INIT")
+
         self.dataframe_obj = dataframe_obj # do not change
         
         self.url = url
@@ -35,6 +38,14 @@ class UrlResponse(object):
         self.http_code = http_code
         self.is_redirected = is_redirected
         self.final_url = final_url
+
+        print("dataframe_obj: {}".format(self.dataframe_obj))
+        print("url: {}".format(self.url))
+        print("error_message: {}".format(self.error_message))
+        print("headers: {}".format(self.headers))
+        print("http_code: {}".format(self.http_code))
+        print("is_redirected: {}".format(self.is_redirected))
+        print("final_url: {}".format(self.final_url))
         
         # Things that have to be set later by crawlers
         self.bad_url = False
@@ -213,10 +224,18 @@ class Link(object):
         return UrlResponse(self, self.full_url, self.raw_content, "", self.http_code, self.http_headers, self.is_redirected, self.final_url), True
 
     def __init__(self, produced_link):
+
+        print("LINK INIT")
+
         self.url = produced_link.url
         self.scheme = produced_link.scheme
         self.domain = produced_link.domain
         self.first_detected_by = produced_link.detected_by
+
+        print("url: {}".format(self.url))
+        print("scheme: {}".format(self.scheme))
+        print("domain: {}".format(self.domain))
+        print("first_detected_by: {}".format(self.first_detected_by))
 
     def download(self, useragentstring, timeout = 2, MaxPageSize = 1048576, MaxRetryDownloadOnFail = 5, retry_count = 0):
         self.isprocessed = True
