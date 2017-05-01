@@ -5,10 +5,11 @@ from spacetime.client.declarations import Producer, GetterSetter, Getter
 #from lxml import html,etree
 import re, os
 from time import time
+import lxml.html
 
 try:
     # For python 2
-    from urlparse import urlparse, parse_qs
+    from urlparse import urlparse, parse_qs, urljoin
 except ImportError:
     # For python 3
     from urllib.parse import urlparse, parse_qs
@@ -93,7 +94,38 @@ def extract_next_links(rawDatas):
     Suggested library: lxml
     '''
 
-    print(rawDatas)
+    # Loop through UrlResponse objects
+    for obj in rawDatas:
+
+        # If object has content, extract links from content
+        if obj.content:
+
+            # Convert string to HTML object
+            html = lxml.html.fromstring(obj.content)
+
+            # Loop through links in HTML object
+            for l in html.iterlinks():
+                url = l[2] # l: (element, attribute, link, pos)
+
+                # If link is not absolute, add host name
+                if not urlparse(url).netloc: # scheme://netloc/path;parameters?query#fragment
+
+                    # If webpage was redirected, use final_url as host name
+                    if obj.is_redirected:
+                        host = obj.final_url
+                    # Otherwise, just use url as host name
+                    else:
+                        host = obj.url
+
+                    # Make link absolute
+                    url = urljoin(host, url)
+
+                # Add to output list
+                outputLinks.append(url)
+
+    # Print final result (comment out later)
+    for link in outputLinks:
+        print(link)
 
     return outputLinks
 
