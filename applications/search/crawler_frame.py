@@ -43,12 +43,12 @@ class CrawlerFrame(IApplication):
     def initialize(self):
         self.count = 0
         l = ProducedLink("http://www.ics.uci.edu", self.UserAgentString)
-        print l.full_url
+        print (l.full_url)
         self.frame.add(l)
 
     def update(self):
         for g in self.frame.get_new(OneUnProcessedGroup):
-            print "Got a Group"
+            print ("Got a Group")
             outputLinks, urlResps = process_url_group(g, self.UserAgentString)
             for urlResp in urlResps:
                 if urlResp.bad_url and self.UserAgentString not in set(urlResp.dataframe_obj.bad_url):
@@ -61,7 +61,7 @@ class CrawlerFrame(IApplication):
             self.done = True
 
     def shutdown(self):
-        print "downloaded ", len(url_count), " in ", time() - self.starttime, " seconds."
+        print ("downloaded ", len(url_count), " in ", time() - self.starttime, " seconds.")
         pass
 
 def save_count(urls):
