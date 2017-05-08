@@ -28,7 +28,7 @@ class CrawlerFrame(IApplication):
     def __init__(self, frame):
         self.starttime = time()
         # Set app_id <student_id1>_<student_id2>...
-        self.app_id = "52852663_SaiID_36907375"
+        self.app_id = "52852663_92269171_36907375"
         # Set user agent string to IR W17 UnderGrad <student_id1>, <student_id2> ...
         # If Graduate studetn, change the UnderGrad part to Grad.
         self.UserAgentString = "IR W17 UnderGrad {}".format(self.app_id.replace('_', ", "))
@@ -100,8 +100,10 @@ def extract_next_links(rawDatas):
     '''
     # Loop through UrlResponse objects
     for obj in rawDatas:
+
         # If object has content, extract links from content
         if obj.content:
+
             # Convert string to HTML object
             html = lxml.html.fromstring(obj.content)
 
@@ -113,13 +115,16 @@ def extract_next_links(rawDatas):
                 # sometimes paths looked like this: www.ics.uci.edu//ugrad/policies/Add_Drop_ChangeOption.php/about/QA_Petitions.php/
                 # where multiple paths were concatenated together.
                 all_urls = re.findall(r'([^:]*?[^:\/]*?\.[^:\/]*?(?:\/|$))',url) # [1:] because ics.uci.edu will be element 0
+                
                 if len(all_urls) > 1:
                     if all_urls[0][:2] == '//': all_urls[0] = all_urls[0][2:]; #cleaning up regex problem
                     all_urls = [all_urls[0] + ('/' if all_urls[0][-1] != '/' else '') + p for p in all_urls[1:]] #make not relative
                 else:
                     all_urls = [url]
+
                 for r_url in all_urls:
                     abs_url = r_url
+
                     # If link is not absolute, add host name
                     if not urlparse(abs_url).netloc:  # scheme://netloc/path;parameters?query#fragment
 
@@ -178,6 +183,7 @@ def is_valid(url):
     for rep in repetitions:
         if len(rep.group(1)) >= 5: #only care about long repeating terms (cant be too small or words like off will trigger...)
             return False
+
     # heuristic: if there are a lot of parameters it is possibly risky dynamically generated content like calendar.ics.uci.edu
     param_slack = 3
     if len(parse_qs(parsed.query)) >= param_slack:
@@ -187,7 +193,6 @@ def is_valid(url):
     if parsed.scheme not in set(["http", "https"]):
         #print('no-http')
         return False
-
 
     try:
         return ".ics.uci.edu" in parsed.hostname \
@@ -199,3 +204,4 @@ def is_valid(url):
                             + "|lif)$", parsed.path.lower())
     except TypeError:
         print ("TypeError for ", parsed)
+        
