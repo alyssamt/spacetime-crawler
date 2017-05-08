@@ -28,7 +28,7 @@ class CrawlerFrame(IApplication):
     def __init__(self, frame):
         self.starttime = time()
         # Set app_id <student_id1>_<student_id2>...
-        self.app_id = "52852663_92269171_36907375"
+        self.app_id = "52852663_SaiID_36907375"
         # Set user agent string to IR W17 UnderGrad <student_id1>, <student_id2> ...
         # If Graduate studetn, change the UnderGrad part to Grad.
         self.UserAgentString = "IR W17 UnderGrad {}".format(self.app_id.replace('_', ", "))
@@ -98,13 +98,10 @@ def extract_next_links(rawDatas):
 
     Suggested library: lxml
     '''
-
     # Loop through UrlResponse objects
     for obj in rawDatas:
-
         # If object has content, extract links from content
         if obj.content:
-
             # Convert string to HTML object
             html = lxml.html.fromstring(obj.content)
 
@@ -112,21 +109,32 @@ def extract_next_links(rawDatas):
             for l in html.iterlinks():
                 url = l[2]  # l: (element, attribute, link, pos)
 
-                # If link is not absolute, add host name
-                if not urlparse(url).netloc:  # scheme://netloc/path;parameters?query#fragment
+                # break up chained together URLs,
+                # sometimes paths looked like this: www.ics.uci.edu//ugrad/policies/Add_Drop_ChangeOption.php/about/QA_Petitions.php/
+                # where multiple paths were concatenated together.
+                all_urls = re.findall(r'([^:]*?[^:\/]*?\.[^:\/]*?(?:\/|$))',url) # [1:] because ics.uci.edu will be element 0
+                if len(all_urls) > 1:
+                    if all_urls[0][:2] == '//': all_urls[0] = all_urls[0][2:]; #cleaning up regex problem
+                    all_urls = [all_urls[0] + ('/' if all_urls[0][-1] != '/' else '') + p for p in all_urls[1:]] #make not relative
+                else:
+                    all_urls = [url]
+                for r_url in all_urls:
+                    abs_url = r_url
+                    # If link is not absolute, add host name
+                    if not urlparse(abs_url).netloc:  # scheme://netloc/path;parameters?query#fragment
 
-                    # If webpage was redirected, use final_url as host name
-                    if obj.is_redirected:
-                        host = obj.final_url
-                    # Otherwise, just use url as host name
-                    else:
-                        host = obj.url
+                        # If webpage was redirected, use final_url as host name
+                        if obj.is_redirected:
+                            host = obj.final_url
+                        # Otherwise, just use url as host name
+                        else:
+                            host = obj.url
 
-                    # Make link absolute
-                    url = urljoin(host, url)
+                        # Make link absolute
+                        abs_url = urljoin(host, abs_url)
 
-                # Add to output list
-                outputLinks.append(url)
+                    # Add to output list
+                    outputLinks.append(abs_url)
 
     # Print final result (comment out later)
     # for link in outputLinks:
@@ -146,11 +154,11 @@ def is_valid(url):
     '''
     url = url.lower()
 
-    if '#' in url:
-        url = url[10:url.rfind('#')]
-
     if 'mailto' in url:
-        return False
+        return False # we can easily ignore mail urls
+
+    if '#' in url:
+        url = url[10:url.rfind('#')] # we don't realy care aboute what position to start at in the page
 
     global already_seen
     if url in already_seen:
@@ -160,15 +168,19 @@ def is_valid(url):
 
     parsed = urlparse(url)
 
-    #heuristic: many traps had concatenated multiple urls together
+    #heuristic: odd urls had concatenated multiple urls together
     fullpath = parsed.path + parsed.query + parsed.params
     if re.search(r'https?://',fullpath):
         #print 'http-in'
         return False
 
-    # heuristic: if there are a lot of parameters it is probably dynamically generated content like calendar.ics.uci.edu
+    repetitions = re.finditer(r'(.+?)\1+',fullpath) #get any repeptitions in the string
+    for rep in repetitions:
+        if len(rep.group(1)) >= 5: #only care about long repeating terms (cant be too small or words like off will trigger...)
+            return False
+    # heuristic: if there are a lot of parameters it is possibly risky dynamically generated content like calendar.ics.uci.edu
     param_slack = 3
-    if len(parse_qs(parsed.query)) > param_slack:
+    if len(parse_qs(parsed.query)) >= param_slack:
         #print 'many-params'
         return False
 
@@ -183,6 +195,7 @@ def is_valid(url):
                                 + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
                                 + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
                                 + "|thmx|mso|arff|rtf|jar|csv" \
-                                + "|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+                                + "|rm|smil|wmv|swf|wma|zip|rar|gz" \
+                                + "|lif)$", parsed.path.lower())
     except TypeError:
         print ("TypeError for ", parsed)
