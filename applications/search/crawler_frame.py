@@ -6,6 +6,7 @@ from spacetime.client.declarations import Producer, GetterSetter, Getter
 import re, os
 from time import time
 import lxml.html
+from collections import defaultdict
 
 try:
     # For python 2
@@ -20,6 +21,9 @@ url_count = (set()
     if not os.path.exists("successful_urls.txt") else
     set([line.strip() for line in open("successful_urls.txt").readlines() if line.strip() != ""]))
 MAX_LINKS_TO_DOWNLOAD = 3000
+
+max_link = None
+max_link_count = 0
 
 
 @Producer(ProducedLink, Link)
@@ -39,6 +43,9 @@ class CrawlerFrame(IApplication):
         if len(url_count) >= MAX_LINKS_TO_DOWNLOAD:
             self.done = True
 
+        self.subdomains = defaultdict(int)
+        self.invalid_links = 0
+
     def initialize(self):
         self.count = 0
         l = ProducedLink("http://www.ics.uci.edu", self.UserAgentString)
@@ -53,15 +60,27 @@ class CrawlerFrame(IApplication):
                 if urlResp.bad_url and self.UserAgentString not in set(urlResp.dataframe_obj.bad_url):
                     urlResp.dataframe_obj.bad_url += [self.UserAgentString]
             for l in outputLinks:
-                if is_valid(l) and robot_manager.Allowed(l, self.UserAgentString):
-                    lObj = ProducedLink(l, self.UserAgentString)
-                    self.frame.add(lObj)
+                if is_valid(l):
+                    if robot_manager.Allowed(l, self.UserAgentString):
+                        lObj = ProducedLink(l, self.UserAgentString)
+                        self.frame.add(lObj)
+
+                        url = urlparse(l)
+                        s = '.'.join(url.hostname.split('.')[:-2])
+                        self.subdomains[s] += 1
+                else:
+                    self.invalid_links += 1
 
         if len(url_count) >= MAX_LINKS_TO_DOWNLOAD:
             self.done = True
 
     def shutdown(self):
-        print ("downloaded ", len(url_count), " in ", time() - self.starttime, " seconds.")
+        with open("analytics.txt", "w") as f:
+            f.write("SUBDOMAINS: {}\n".format(dict(self.subdomains)))
+            f.write("INVALID LINKS: {}\n".format(self.invalid_links))
+            f.write("MOST OUT LINKS: {}\n".format({max_link: max_link_count}))
+
+        print("downloaded ", len(url_count), " in ", time() - self.starttime, " seconds.")
         pass
 
 
@@ -98,6 +117,9 @@ def extract_next_links(rawDatas):
 
     Suggested library: lxml
     '''
+    global max_link
+    global max_link_count
+
     # Loop through UrlResponse objects
     for obj in rawDatas:
 
@@ -106,6 +128,7 @@ def extract_next_links(rawDatas):
 
             # Convert string to HTML object
             html = lxml.html.fromstring(obj.content)
+            link_count = 0
 
             # Loop through links in HTML object
             for l in html.iterlinks():
@@ -140,6 +163,12 @@ def extract_next_links(rawDatas):
 
                     # Add to output list
                     outputLinks.append(abs_url)
+                    link_count += 1
+
+            # Analytics: Keep track of page with most out links
+            if link_count > max_link_count:
+                max_link = host
+                max_link_count = link_count
 
     # Print final result (comment out later)
     # for link in outputLinks:
@@ -167,7 +196,6 @@ def is_valid(url):
 
     global already_seen
     if url in already_seen:
-        #print 'as'
         return False
     already_seen.add(url)
 
@@ -176,7 +204,6 @@ def is_valid(url):
     #heuristic: odd urls had concatenated multiple urls together
     fullpath = parsed.path + parsed.query + parsed.params
     if re.search(r'https?://',fullpath):
-        #print 'http-in'
         return False
 
     repetitions = re.finditer(r'(.+?)\1+',fullpath) #get any repeptitions in the string
@@ -187,11 +214,9 @@ def is_valid(url):
     # heuristic: if there are a lot of parameters it is possibly risky dynamically generated content like calendar.ics.uci.edu
     param_slack = 3
     if len(parse_qs(parsed.query)) >= param_slack:
-        #print 'many-params'
         return False
 
     if parsed.scheme not in set(["http", "https"]):
-        #print('no-http')
         return False
 
     try:
