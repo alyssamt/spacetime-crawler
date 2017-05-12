@@ -80,7 +80,7 @@ class CrawlerFrame(IApplication):
             f.write("INVALID LINKS: {}\n".format(self.invalid_links))
             f.write("MOST OUT LINKS: {}\n".format({max_link: max_link_count}))
 
-        print("downloaded ", len(url_count), " in ", time() - self.starttime, " seconds.")
+        print "downloaded ", len(url_count), " in ", time() - self.starttime, " seconds."
         pass
 
 
